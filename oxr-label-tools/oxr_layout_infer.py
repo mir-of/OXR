@@ -133,14 +133,14 @@ def _multipart_body(files: list[tuple[str, bytes]], boundary: str) -> bytes:
         # 字段名固定为 images，文件名 page-{i}.png，content-type 为 octet-stream
         disp = f'form-data; name="images"; filename="page-{idx}.png"'
         head = (
-            f"--{boundary}{crlf}"
-            f"Content-Disposition: {disp}{crlf}"
-            f"Content-Type: application/octet-stream{crlf}{crlf}"
-        ).encode("utf-8")
+            b"--" + boundary.encode("utf-8") + crlf
+            + b"Content-Disposition: " + disp.encode("utf-8") + crlf
+            + b"Content-Type: application/octet-stream" + crlf + crlf
+        )
         parts.append(head)
         parts.append(png_bytes)
         parts.append(crlf)
-    parts.append(f"--{boundary}--{crlf}".encode("utf-8"))
+    parts.append(b"--" + boundary.encode("utf-8") + b"--" + crlf)
     return b"".join(parts)
 
 
