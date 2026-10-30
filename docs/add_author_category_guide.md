@@ -6,6 +6,18 @@
 
 ---
 
+> **版本管理（git，已就绪）**：本工作全部在独立分支管理，未污染 `main` / 官方 `origin`。
+> - 分支：`feature/add-author-category`（已从 `main` 切出，跟踪 `mine` 远端）
+> - 远端：`origin` = `https://github.com/SoMarkAI/OXR.git`（官方，只读）；
+>   `mine` = `git@github.com:mir-of/OXR.git`（个人 fork，SSH，已推送）
+> - 已提交：`6fa3e24 docs: add author-category action guide (v2, code-verified)`
+> - 未纳入：原 `docs/add_author_category_lora_guide.md`（旧指南）；`docker/Dockerfile.allinone` 的无关改动保留不动
+> - 提交约定：每完成一个阶段（代码接入 / 工具新建 / 训练闭环）单独 commit；只 `git add` 本次相关文件，避免误带无关改动
+> - 推送：`git push -u mine feature/add-author-category`（已验证可通）
+
+---
+
+
 ## 〇、代码现状核对（已核实）
 
 | 项目 | 真实事实 |
