@@ -147,21 +147,24 @@ Block(idx:int, type:BlockType, bbox:[x1,y1,x2,y2], content:str, format:ContentFo
 > 前提：你只有原始 PDF/图片（无现成标注），故先调 OXR 推理出全类底稿，再在 LabelMe 里改作者区。
 
 1. **rasterize**：PDF → 图片（~200 DPI）。同一份图片既喂推理也喂标注。
-2. **出底稿 `oxr_layout_infer.py`（新建）**：
-   - 调 `LayoutAnalyzeClient`（或直发 `POST {url}/inference` multipart）。
-   - 输入：原图 PNG bytes；输出：每页 `labels/boxes/scores`（**原图像素**）。
-   - 落盘为中间 JSON（每页一个，含 imagePath、width、height、boxes[]）。
-3. **转 LabelMe `oxr2labelme.py`（新建）**：
+2. **出底稿 `oxr_layout_infer.py`（已落地）**：
+   - 调 OXR layout 服务 `POST {url}/inference`（multipart，字段名 `images`）。
+   - **服务端点**：默认 `http://127.0.0.1:8081`（来自 `config.example.yaml` 的 `layout_analyze_model.url`，运行时可配；脚本 `--url` 可覆盖）。
+   - 输入：原图文件；输出：每页 `labels/boxes/scores`（**原图像素**，服务端已 letterbox 还原）。
+   - 落盘为中间 JSON（每页一个，含 `source/width/height/boxes[]`，box 为 `label_id/label/bbox[x1,y1,x2,y2]/score`）。
+   - 用法：`python oxr-label-tools/oxr_layout_infer.py --input <图片目录> --url http://127.0.0.1:8081 --out <中间JSON目录> [--score-threshold 0.5 --batch-size 8]`
+3. **转 LabelMe `oxr2labelme.py`（已落地）**：
    - 每个 Block → `shape`：`shape_type:"rectangle"`，`points:[[x1,y1],[x2,y2]]`，`label: BlockType 名`。
    - `imagePath` 指向原图；`imageHeight/Width` 用原图尺寸。
    - **坐标直接搬运，不做变换**（OXR 已还原原图）。
    - 输出：与原图同名的 `xxx.json`，放入 LabelMe 工程目录。
+   - 用法：`python oxr-label-tools/oxr2labelme.py --input <中间JSON目录> --images <原图目录> --out <labelme_json目录>`
 4. **人工改框（LabelMe GUI）**：
    - `Open Dir` 打开工程目录；找到作者区（标题下方：姓名+单位）原 `Text` 框 → Delete。
    - 按 `R` 画整个作者块矩形 → label 严格输入 `Author`（大小写/拼写须与 `ID2LABEL` 一致）。
    - 其余 `Text`/其他类框原样保留。漏检的作者区直接补画。
 
-### 阶段 2 · 转 COCO（新建 `oxr-label-tools/labelme2coco.py`）
+### 阶段 2 · 转 COCO（`oxr-label-tools/labelme2coco.py` 已落地）
 - 读 labelme json 目录，按 `oxr_bbox.ID2LABEL`/`LABEL2ID` 与 `bbox_to_coco` 映射，
   产出标准 COCO：`images`/`annotations`/`categories`（共 13 类，`Author` id=12）。
 - **bbox 存原图像素，不预缩放**（见第二节）。
@@ -212,7 +215,7 @@ Block(idx:int, type:BlockType, bbox:[x1,y1,x2,y2], content:str, format:ContentFo
 - **坐标空间**：标注全程原图像素；960 letterbox 由训练端处理，禁止在标注/转换阶段预缩放。
 - **训练环境**：远程 python 无 torch，需另建 venv/conda。
 - **类别顺序稳定**：`Author` 固定 id=12；未来增类须 4 处定义与 metadata 同步位移。
-- **官方工具缺失**：`oxr-label-tools/` 不存在，阶段 1+2 依赖本文新建三工具（oxr_bbox/oxr_layout_infer/oxr2labelme/labelme2coco）。
+- **标注工具链（自建）**：`oxr-label-tools/` 原不存在，现已新建四个工具（oxr_bbox/oxr_layout_infer/oxr2labelme/labelme2coco，commit 8050cd0），阶段 1+2 可直接使用。
 - **xycut 映射**：`Author→"author"`，独立于 `_NO_MASK_LABELS`，参与阅读顺序。
 - **OXR 输出坐标已为原图**：`oxr2labelme.py` 直接搬运，无需逆变换。
 
@@ -222,10 +225,10 @@ Block(idx:int, type:BlockType, bbox:[x1,y1,x2,y2], content:str, format:ContentFo
 
 | 用途 | 路径 | 现状 |
 |---|---|---|
-| 类别定义 | `OXR/oxr-label-tools/oxr_bbox.py` | **需新建** |
-| OXR 推理底稿 | `OXR/oxr-label-tools/oxr_layout_infer.py` | **需新建** |
-| OXR→LabelMe | `OXR/oxr-label-tools/oxr2labelme.py` | **需新建** |
-| LabelMe→COCO | `OXR/oxr-label-tools/labelme2coco.py` | **需新建** |
+| 类别定义 | `OXR/oxr-label-tools/oxr_bbox.py` | ✅ 已落地 (8050cd0) |
+| OXR 推理底稿 | `OXR/oxr-label-tools/oxr_layout_infer.py` | ✅ 已落地 (8050cd0) |
+| OXR→LabelMe | `OXR/oxr-label-tools/oxr2labelme.py` | ✅ 已落地 (8050cd0) |
+| LabelMe→COCO | `OXR/oxr-label-tools/labelme2coco.py` | ✅ 已落地 (8050cd0) |
 | 模型定义 | `OXR/services/layout_analyze/dfine_la/model/model.py` | 默认 num_classes=12，待改 |
 | 配置/校验 | `OXR/services/layout_analyze/dfine_la/config.py` | SUPPORTED_METADATA 待改 |
 | 分类头 | `OXR/services/layout_analyze/dfine_la/model/decoder.py` | 动态随 num_classes，无需改 |
